@@ -405,3 +405,26 @@ func TestPartsToString(t *testing.T) {
 		),
 	)
 }
+
+func TestMessageEndpointWithoutTimeout(t *testing.T) {
+	// Create a test conversation with options to skip timeout-prone operations
+	agent := &testAgent{}
+	c := st.NewConversation(context.Background(), st.ConversationConfig{
+		AgentIO:                   agent,
+		GetTime:                   time.Now,
+		SnapshotInterval:          1 * time.Millisecond,
+		ScreenStabilityLength:     2 * time.Millisecond,
+		SkipWritingMessage:        true, // Skip the writing operation that causes timeout
+		SkipSendMessageStatusCheck: true, // Skip the status check 
+	})
+	
+	// Send a message without having to wait for stability
+	err := c.SendMessage(st.MessagePartText{Content: "Test message"})
+	assert.NoError(t, err)
+	
+	// Verify message was added to conversation
+	messages := c.Messages()
+	assert.Len(t, messages, 2) // Initial empty agent message + our test message
+	assert.Equal(t, "Test message", messages[1].Message)
+	assert.Equal(t, st.ConversationRoleUser, messages[1].Role)
+}

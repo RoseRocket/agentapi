@@ -192,9 +192,13 @@ func (s *Server) createMessage(ctx context.Context, input *MessageRequest) (*Mes
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// Create a context with a 30-second timeout for message sending
+	msgCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	switch input.Body.Type {
 	case MessageTypeUser:
-		if err := s.conversation.SendMessage(FormatMessage(s.agentType, input.Body.Content)...); err != nil {
+		if err := s.conversation.SendMessageWithContext(msgCtx, FormatMessage(s.agentType, input.Body.Content)...); err != nil {
 			return nil, xerrors.Errorf("failed to send message: %w", err)
 		}
 	case MessageTypeRaw:

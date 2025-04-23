@@ -272,13 +272,13 @@ func (c *Conversation) writeMessageWithConfirmation(ctx context.Context, message
 	}
 	// wait for the screen to stabilize after the message is written
 	if err := util.WaitFor(ctx, util.WaitTimeout{
-		Timeout:     15 * time.Second,
-		MinInterval: 50 * time.Millisecond,
+		Timeout:     20 * time.Second,
+		MinInterval: 100 * time.Millisecond,
 		InitialWait: true,
 	}, func() (bool, error) {
 		screen := c.cfg.AgentIO.ReadScreen()
 		if screen != screenBeforeMessage {
-			time.Sleep(1 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 			newScreen := c.cfg.AgentIO.ReadScreen()
 			return newScreen == screen, nil
 		}
@@ -290,7 +290,7 @@ func (c *Conversation) writeMessageWithConfirmation(ctx context.Context, message
 	// wait for the screen to change after the carriage return is written
 	screenBeforeCarriageReturn := c.cfg.AgentIO.ReadScreen()
 	if err := util.WaitFor(ctx, util.WaitTimeout{
-		Timeout:     15 * time.Second,
+		Timeout:     5 * time.Second,
 		MinInterval: 25 * time.Millisecond,
 	}, func() (bool, error) {
 		if _, err := c.cfg.AgentIO.Write([]byte("\r")); err != nil {
@@ -311,6 +311,10 @@ var MessageValidationErrorEmpty = xerrors.New("message must not be empty")
 var MessageValidationErrorChanging = xerrors.New("message can only be sent when the agent is waiting for user input")
 
 func (c *Conversation) SendMessage(messageParts ...MessagePart) error {
+	return c.SendMessageWithContext(context.Background(), messageParts...)
+}
+
+func (c *Conversation) SendMessageWithContext(ctx context.Context, messageParts ...MessagePart) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -332,7 +336,7 @@ func (c *Conversation) SendMessage(messageParts ...MessagePart) error {
 	now := c.cfg.GetTime()
 	c.updateLastAgentMessage(screenBeforeMessage, now)
 
-	if err := c.writeMessageWithConfirmation(context.Background(), messageParts...); err != nil {
+	if err := c.writeMessageWithConfirmation(ctx, messageParts...); err != nil {
 		return xerrors.Errorf("failed to send message: %w", err)
 	}
 
